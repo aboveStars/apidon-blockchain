@@ -1,0 +1,3 @@
+[submodule "payments/lib/forge-std"]
+	path = payments/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
