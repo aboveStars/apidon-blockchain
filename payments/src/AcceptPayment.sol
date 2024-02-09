@@ -9,7 +9,7 @@ contract AcceptPayment {
   mapping(address => uint256) public addressToDebt;
   address public admin;
 constructor() {
-        owner = msg.sender; // since we will be the first ones to deploy owner of the contract cannot be changed. ?
+        owner = msg.sender; // since we will be the first ones to deploy owner of the contract cannot be changed. 
     }
 function setAdmin(address _admin) external onlyOwner {
         admin = _admin;
@@ -17,7 +17,7 @@ function setAdmin(address _admin) external onlyOwner {
 function changeAdmin(address _newAdmin) external onlyOwner {
         admin = _newAdmin;
     }
-function addKnownAddress(address _newAddress) external  onlyOwner{
+function addKnownAddress(address _newAddress) external  onlyOwner onlyAdmin{
         require(!isAddressKnown(_newAddress), "Address already known");
         knownAddresses.push(_newAddress);
     }
@@ -55,9 +55,9 @@ function payToUser(uint256 _amount) external {
          addressToDebt[_sender] -= _amount; //  Deduct the paid amount from the debt
         _sender.transfer(_amount);
     }
-function setEthAmountAndDueDate(address _address, uint256 _ethAmount, uint256 _dueDate) external onlyOwner onlyAdmin{
+function setEthAmount(address _address, uint256 _ethAmount) external onlyOwner onlyAdmin{
         addressToEthBalance[_address] = _ethAmount;
-        addressToDueDate[_address] = _dueDate;
+        
     }
 
 function getAddressData(address _address) external view onlyOwner onlyAdmin returns (uint256 ethAmount, uint256 dueDate) {
@@ -74,9 +74,9 @@ function sendEtherToContract() external payable {
     address payable contractAddress = payable(address(this));
     contractAddress.transfer(ethAmountAllowed);
 }
-function changeEthAmountAndDueDate(address _address, uint256 _newEthAmount, uint256 _newDueDate) external onlyOwner onlyAdmin {
+function changeEthAmount(address _address, uint256 _newEthAmount) external onlyOwner onlyAdmin {
         addressToEthBalance[_address] = _newEthAmount;
-        addressToDueDate[_address] = _newDueDate;
+        
     }
 function getUnixTimestamp(uint16 year, uint8 month, uint8 day) internal pure returns (uint256) {
         require(year >= 1970, "Year must be 1970 or later");
