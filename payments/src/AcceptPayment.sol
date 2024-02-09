@@ -7,8 +7,15 @@ contract AcceptPayment {
   mapping(address => uint256) public addressToEthBalance;
   mapping(address => uint256) public addressToDueDate;
   mapping(address => uint256) public addressToDebt;
+  address public admin;
 constructor() {
         owner = msg.sender; // since we will be the first ones to deploy owner of the contract cannot be changed. ?
+    }
+function setAdmin(address _admin) external onlyOwner {
+        admin = _admin;
+    }
+function changeAdmin(address _newAdmin) external onlyOwner {
+        admin = _newAdmin;
     }
 function addKnownAddress(address _newAddress) external  onlyOwner{
         require(!isAddressKnown(_newAddress), "Address already known");
@@ -26,7 +33,11 @@ modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
         _;
     }
-function setDebt(address _address, uint256 _debtAmount) external onlyOwner {
+modifier onlyAdmin() {
+        require(msg.sender == admin, "Only admin can call this function");
+        _;
+    }
+function setDebt(address _address, uint256 _debtAmount) external onlyOwner onlyAdmin{
         require(isAddressKnown(_address), "Address is not a known address");
         addressToDebt[_address] = _debtAmount;
     }
@@ -44,12 +55,12 @@ function payToUser(uint256 _amount) external {
          addressToDebt[_sender] -= _amount; //  Deduct the paid amount from the debt
         _sender.transfer(_amount);
     }
-function setEthAmountAndDueDate(address _address, uint256 _ethAmount, uint256 _dueDate) external onlyOwner {
+function setEthAmountAndDueDate(address _address, uint256 _ethAmount, uint256 _dueDate) external onlyOwner onlyAdmin{
         addressToEthBalance[_address] = _ethAmount;
         addressToDueDate[_address] = _dueDate;
     }
 
-function getAddressData(address _address) external view onlyOwner returns (uint256 ethAmount, uint256 dueDate) {
+function getAddressData(address _address) external view onlyOwner onlyAdmin returns (uint256 ethAmount, uint256 dueDate) {
         ethAmount = addressToEthBalance[_address];
         dueDate = addressToDueDate[_address];
     }
@@ -63,7 +74,7 @@ function sendEtherToContract() external payable {
     address payable contractAddress = payable(address(this));
     contractAddress.transfer(ethAmountAllowed);
 }
-function changeEthAmountAndDueDate(address _address, uint256 _newEthAmount, uint256 _newDueDate) external onlyOwner {
+function changeEthAmountAndDueDate(address _address, uint256 _newEthAmount, uint256 _newDueDate) external onlyOwner onlyAdmin {
         addressToEthBalance[_address] = _newEthAmount;
         addressToDueDate[_address] = _newDueDate;
     }
@@ -95,7 +106,7 @@ function getUnixTimestamp(uint16 year, uint8 month, uint8 day) internal pure ret
         return timestamp;
     }
 
-function setDueDate(address _address, uint16 year, uint8 month, uint8 day) external onlyOwner {
+function setDueDate(address _address, uint16 year, uint8 month, uint8 day) external onlyOwner onlyAdmin {
         uint256 dueDate = getUnixTimestamp(year, month, day);
         addressToDueDate[_address] = dueDate;
     }
