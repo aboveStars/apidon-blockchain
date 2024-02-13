@@ -11,20 +11,31 @@ You can change the account to see wheter someone can use the tested function bes
 
 
 
-Only owner of the contract can use this functions:
-setAdmin (owner can set an admin)(write an address)
-changeAdmin (owner is able to change the admin)(write an address)
+*Only owner of the contract can use this functions:
+  *setAdmin (owner can set an admin)(write an address)
+  *changeAdmin (owner is able to change the admin)(write an address)
 
-Only admin and owner can use this functions:
-function addKnownAddress (Can add address to make payment or take payment from them.)(write an address)
-function setDebt (Can set an amount for user. they can withdraw this money from contract.) (write the amount)
-function setEthAmount (can set an amount for provider to pay the contract to pay this ether.) (write the amount)
-function getAddressData (admin and owner can see the deadline and amount that needed to bee paid from wanted address.(provider))
-function changeEthAmount (can change the amount for provider to pay the contract.) (write the amount)
-function setDueDate (add a deadline for provider to make the payment) (write => address, year, month, day)
+*Only admin and owner can use this functions:
+  *function createPaymentRule(address payable _recipient, uint256 _amount, uint256 _ID,uint16 year, uint8 month, uint8 day) to create paymentrule for provider.
+  *function updatePaymentRule(uint256 _ID, uint256 _newAmount, uint16 year, uint8 month, uint8 day) to change the date and amount for provider !! cannot use createPaymentRule for the same ID.
+  *funciton getPaymentRuleByID(uint256 _ID) to get the infos about Provider
+  *function getPaymentRuleStatus(uint256 _ID) learn wheter its paid
+  *function addUserPaymentRule(address _userAddress, uint256 _amount, uint256 _ID) Function to add a new user payment rule, accessible only by the contract owner and admin
+  *function getUserPaymentRuleByID(uint256 _ID) Function to get a payment rule by its ID, accessible by the ID owner and contract owner
 
-Everyone can use this functions:
-function isAddressKnown (to see wheter that address is in the list) (write an address)
-function getDebt (for users to see the amount they can withdraw from the contract)
-function payToUser (for users to withdraw the amount from the contract) (write the amount)
-function sendEtherToContract (provider can send money until the deadline with this function) (write the amount)
+
+Everyone can call this funcitons:
+  *function makePayment(uint256 _ID) Providers make payment with thier ID.
+  *function getPayment(uint256 _ID, uint256 _amountToWithdraw) Function to allow a user to withdraw a certain amount or all of it from their own address.
+
+
+
+
+
+
+
+
+
+
+
+
