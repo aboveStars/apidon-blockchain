@@ -191,12 +191,13 @@ function getUserPayment(uint256 _ID) public {
             require(amountToWithdraw > 0, "No balance available to withdraw");
             payable(msg.sender).transfer(amountToWithdraw);
             userPaymentRules[i].amount = 0; // Set the remaining amount to zero after withdrawal
+            userPaymentRulesStatus[_ID] = true; // Update payment rule status to true
             return;
         }
     }
-    userPaymentRulesStatus[_ID] = true;
     revert("Payment rule not found or unauthorized");
 }
+
 function getUserPaymentRuleStatus(uint256 _ID) external view onlyOwnerOrAdmin returns (bool) {
         return userPaymentRulesStatus[_ID];
     }
