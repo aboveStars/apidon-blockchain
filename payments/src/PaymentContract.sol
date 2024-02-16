@@ -17,12 +17,13 @@ contract PaymentContract {
         uint256 ID;
     }
 
-  ProviderPaymentRule[] public makePaymentRules;
-  mapping(uint256 => bool) public makePaymentRulesStatus;
+  ProviderPaymentRule[] public makeProviderPaymentRules;
+  mapping(uint256 => bool) public makeProviderPaymentRulesStatus;
   UserPaymentRule[] public userPaymentRules;
-
+  mapping(uint256 => bool) public userPaymentRulesStatus;
     constructor() {
         owner = msg.sender;
+        admin = address(0); // Initialize admin to an empty address
     }
 
 
@@ -34,23 +35,20 @@ modifier onlyOwner() {
         require(msg.sender == owner, "Only the owner can access this function");
         _;
     }
-modifier onlyAdmin() {
-        require(msg.sender == admin, "Only admin can call this function");
+
+modifier onlyOwnerOrAdmin() {
+        require(msg.sender == owner || msg.sender == admin, "Only owner or admin can call this function.");
         _;
     }
 
 
-function createPaymentRule(address payable _recipient, uint256 _amount, uint256 _ID,uint16 year, uint8 month, uint8 day) external
- onlyAdmin onlyOwner {
+function createProviderPaymentRule(address payable _recipient, uint256 _amount, uint256 _ID,uint16 year, uint8 month, uint8 day) external
+ onlyOwnerOrAdmin {
        
-    // Check if the recipient address already exists in the makePaymentRules array
-    for (uint256 i = 0; i < makePaymentRules.length; i++) {
-        require(makePaymentRules[i].recipient != _recipient, "Recipient address already exists");
-    }
 
-    // Check if the ID already exists in the makePaymentRules array
-    for (uint256 i = 0; i < makePaymentRules.length; i++) {
-        require(makePaymentRules[i].ID != _ID, "ID already exists");
+    // Check if the ID already exists in the makeProviderPaymentRules array
+    for (uint256 i = 0; i < makeProviderPaymentRules.length; i++) {
+        require(makeProviderPaymentRules[i].ID != _ID, "ID already exists");
     }
     uint256 _dueDate = getUnixTimestamp(year, month, day);
         ProviderPaymentRule memory newRule = ProviderPaymentRule({
@@ -60,40 +58,53 @@ function createPaymentRule(address payable _recipient, uint256 _amount, uint256 
             dueDate: _dueDate
         });
 
-        makePaymentRules.push(newRule);
-        makePaymentRulesStatus[_ID] = false; // Set the status to false initially
+        makeProviderPaymentRules.push(newRule);
+        makeProviderPaymentRulesStatus[_ID] = false; // Set the status to false initially
     }
-// to change the date or amount
-function updatePaymentRule(uint256 _ID, uint256 _newAmount, uint16 year, uint8 month, uint8 day) external  onlyAdmin onlyOwner{
-        uint256 _newDueDate = getUnixTimestamp(year, month, day);
-        for (uint256 i = 0; i < makePaymentRules.length; i++) {
-            if (makePaymentRules[i].ID == _ID) {
-                makePaymentRules[i].amount = _newAmount;
-                makePaymentRules[i].dueDate = _newDueDate;
-                return;
-            }
+// Allow updating payment rule only if the due date set in createPaymentRule hasn't passed and makeProviderPaymentRulesStatus is false
+function updateProviderPaymentRule(uint256 _ID, uint256 _newAmount, uint16 year, uint8 month, uint8 day) external onlyOwnerOrAdmin {
+    uint256 _newDueDate = getUnixTimestamp(year, month, day);
+
+    // Check if the due date has passed for the payment rule and if the status is false
+    for (uint256 i = 0; i < makeProviderPaymentRules.length; i++) {
+        if (makeProviderPaymentRules[i].ID == _ID) {
+            require(block.timestamp <= makeProviderPaymentRules[i].dueDate, "Due date has passed, cannot update");
+            require(!makeProviderPaymentRulesStatus[_ID], "Payment rule status is true, cannot update");
+            break;
         }
-        revert("Payment rule with given ID does not exist");
     }
+
+    // Update the payment rule
+    for (uint256 i = 0; i < makeProviderPaymentRules.length; i++) {
+        if (makeProviderPaymentRules[i].ID == _ID) {
+            makeProviderPaymentRules[i].amount = _newAmount;
+            makeProviderPaymentRules[i].dueDate = _newDueDate;
+            return;
+        }
+    }
+    revert("Payment rule with given ID does not exist");
+}
+
+
 // Infos about provider
-function getPaymentRuleByID(uint256 _ID) external  view onlyAdmin onlyOwner returns (address payable recipient, uint256 amount, uint256 dueDate) {
-        for (uint256 i = 0; i < makePaymentRules.length; i++) {
-            if (makePaymentRules[i].ID == _ID) {
-                return (makePaymentRules[i].recipient, makePaymentRules[i].amount, makePaymentRules[i].dueDate);
+function getProviderPaymentRuleByID(uint256 _ID) external  view onlyOwnerOrAdmin returns (address payable recipient, uint256 amount, uint256 dueDate) {
+        for (uint256 i = 0; i < makeProviderPaymentRules.length; i++) {
+            if (makeProviderPaymentRules[i].ID == _ID) {
+                return (makeProviderPaymentRules[i].recipient, makeProviderPaymentRules[i].amount, makeProviderPaymentRules[i].dueDate);
             }
         }
         revert("Payment rule with given ID does not exist");
     }
     // provider makes the payment
-function makePayment(uint256 _ID) external payable {
+function makeProviderPayment(uint256 _ID) external payable {
         uint256 amountToSend = 0;
         address payable recipientAddress;
         uint256 i; // Declare 'i' here
         // Find the payment rule and recipient associated with the specified ID
-        for (i = 0; i < makePaymentRules.length; i++) {
-            if (makePaymentRules[i].ID == _ID) {
-                amountToSend = makePaymentRules[i].amount;
-                recipientAddress = makePaymentRules[i].recipient;
+        for (i = 0; i < makeProviderPaymentRules.length; i++) {
+            if (makeProviderPaymentRules[i].ID == _ID) {
+                amountToSend = makeProviderPaymentRules[i].amount;
+                recipientAddress = makeProviderPaymentRules[i].recipient;
                 break;
             }
         }
@@ -108,17 +119,17 @@ function makePayment(uint256 _ID) external payable {
         require(recipientAddress == payable(msg.sender), "Sender is not the recipient of the payment rule");
         
         // Check if it is the right time of the payment rule
-        require(block.timestamp <= makePaymentRules[i].dueDate, "Due date has passed");
+        require(block.timestamp <= makeProviderPaymentRules[i].dueDate, "Due date has passed");
 
         // Update payment rule status to true
-        makePaymentRulesStatus[_ID] = true;
+        makeProviderPaymentRulesStatus[_ID] = true;
 
         // Perform the payment
         // At this point, the ETH sent by the user will be transferred to the contract
     }
 // To get the payment status false or true
-function getPaymentRuleStatus(uint256 _ID) external view onlyAdmin onlyOwner returns (bool) {
-        return makePaymentRulesStatus[_ID];
+function getProviderPaymentRuleStatus(uint256 _ID) external view onlyOwnerOrAdmin returns (bool) {
+        return makeProviderPaymentRulesStatus[_ID];
     }
 
 function getUnixTimestamp(uint16 year, uint8 month, uint8 day) internal pure returns (uint256) {
@@ -151,31 +162,43 @@ function getUnixTimestamp(uint16 year, uint8 month, uint8 day) internal pure ret
 
 
 // Function to add a new user payment rule, accessible only by the contract owner and admin
-function addUserPaymentRule(address _userAddress, uint256 _amount, uint256 _ID) external onlyAdmin onlyOwner {
+function addUserPaymentRule(address _userAddress, uint256 _amount, uint256 _ID) external onlyOwnerOrAdmin {
+        // Check if the ID already exists in the userPaymentRules array
+    for (uint256 i = 0; i < userPaymentRules.length; i++) {
+        require(userPaymentRules[i].ID != _ID, "ID already exists");
+    }
         
         UserPaymentRule memory newRule = UserPaymentRule(_userAddress, _amount, _ID);
         userPaymentRules.push(newRule);
+        userPaymentRulesStatus[_ID] = false; // Set the status to false initially
     }
 
-     // Function to get a payment rule by its ID, accessible by the ID owner and contract owner
-function getUserPaymentRuleByID(uint256 _ID) public view onlyAdmin onlyOwner returns (UserPaymentRule memory) {
+     // Function to get a payment rule by its ID, accessible by  contract owner and admin
+function getUserPaymentRuleByID(uint256 _ID) external view onlyOwnerOrAdmin returns (address userAddress, uint256 amount, uint256 ID) {
         for (uint256 i = 0; i < userPaymentRules.length; i++) {
-            if (userPaymentRules[i].ID == _ID && (userPaymentRules[i].userAddress == msg.sender || msg.sender == owner)) {
-                return userPaymentRules[i];
+            if (userPaymentRules[i].ID == _ID ) {
+                return (userPaymentRules[i].userAddress, userPaymentRules[i].amount, userPaymentRules[i].ID);
             }
         }
         revert("Payment rule not found or unauthorized");
     }
-    // Function to allow a user to withdraw a certain amount or all of it from their own address
-function getPayment(uint256 _ID, uint256 _amountToWithdraw) public {
-        for (uint256 i = 0; i < userPaymentRules.length; i++) {
-            if (userPaymentRules[i].ID == _ID && userPaymentRules[i].userAddress == msg.sender) {
-                require(_amountToWithdraw <= userPaymentRules[i].amount, "Insufficient balance");
-                payable(msg.sender).transfer(_amountToWithdraw);
-                userPaymentRules[i].amount -= _amountToWithdraw; // Reduce the amount by the withdrawn amount
-                return;
-            }
+
+// Function to allow a user to withdraw the full amount assigned to them from their own address
+function getUserPayment(uint256 _ID) public {
+    for (uint256 i = 0; i < userPaymentRules.length; i++) {
+        if (userPaymentRules[i].ID == _ID && userPaymentRules[i].userAddress == msg.sender) {
+            uint256 amountToWithdraw = userPaymentRules[i].amount;
+            require(amountToWithdraw > 0, "No balance available to withdraw");
+            payable(msg.sender).transfer(amountToWithdraw);
+            userPaymentRules[i].amount = 0; // Set the remaining amount to zero after withdrawal
+            return;
         }
-        revert("Payment rule not found or unauthorized");
     }
+    userPaymentRulesStatus[_ID] = true;
+    revert("Payment rule not found or unauthorized");
+}
+function getUserPaymentRuleStatus(uint256 _ID) external view onlyOwnerOrAdmin returns (bool) {
+        return userPaymentRulesStatus[_ID];
+    }
+
 }
