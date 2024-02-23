@@ -32,6 +32,22 @@ Everyone can call this funcitons:
 
 
 
+----------------------OPTIMIZED PAYMENT CONTRACT------------------ 
+  In this modified version, the ProviderPaymentRule and UserPaymentRule structs each have a status field of type boolean, which is used to track payment statuses. This eliminates the need for mapping storage variables (makeProviderPaymentRulesStatus and userPaymentRulesStatus), resulting in reduced storage writes and gas costs.
+
+
+
+
+To minimize the number of storage reads and writes, especially within loops, we have used local variables to store values retrieved from storage since they are accessed multiple times within a function. Additionally, we have considered using mappings instead of arrays to reduce gas costs.
+
+
+
+YOU CAN SEE THE OPTIMIZED VERSİON USES LESS GAS BY DEPLOYING BOTH CINTRACTS TO REMIX.ETH AND VIEWING THEIR GASES.
+
+
+
+
+
 
 
 
