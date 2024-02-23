@@ -6,6 +6,7 @@ contract OptimizedPaymentContract {
     address public admin;
 
     struct ProviderPaymentRule {
+        uint256 ID;
         address payable recipient;
         uint256 amount;
         uint256 dueDate;
@@ -13,6 +14,7 @@ contract OptimizedPaymentContract {
     }
 
     struct UserPaymentRule {
+        uint256 ID;
         address userAddress;
         uint256 amount;
         bool status; // Payment status flag
@@ -44,6 +46,7 @@ contract OptimizedPaymentContract {
         require(providerPaymentRules[_ID].amount == 0, "ID already exists");
         uint256 _dueDate = getUnixTimestamp(year, month, day);
         providerPaymentRules[_ID] = ProviderPaymentRule({
+            ID: _ID,
             recipient: _recipient,
             amount: _amount,
             dueDate: _dueDate,
@@ -60,9 +63,9 @@ contract OptimizedPaymentContract {
         rule.dueDate = getUnixTimestamp(year, month, day);
     }
 
-    function getProviderPaymentRuleByID(uint256 _ID) external view onlyOwnerOrAdmin returns (address payable recipient, uint256 amount, uint256 dueDate) {
+    function getProviderPaymentRuleByID(uint256 _ID) external view onlyOwnerOrAdmin returns (uint256 ID, address payable recipient, uint256 amount, uint256 dueDate) {
         ProviderPaymentRule storage rule = providerPaymentRules[_ID];
-        return (rule.recipient, rule.amount, rule.dueDate);
+        return (rule.ID, rule.recipient, rule.amount, rule.dueDate);
     }
 
     function makeProviderPayment(uint256 _ID) external payable {
@@ -75,9 +78,9 @@ contract OptimizedPaymentContract {
         rule.status = true;
     }
 
-    function getUserPaymentRuleByID(uint256 _ID) external view onlyOwnerOrAdmin returns (address userAddress, uint256 amount, uint256 dueDate) {
+    function getUserPaymentRuleByID(uint256 _ID) external view onlyOwnerOrAdmin returns (address userAddress, uint256 amount, uint256 ID) {
         UserPaymentRule storage rule = userPaymentRules[_ID];
-        return (rule.userAddress, rule.amount, 0);
+        return (rule.userAddress, rule.amount, rule.ID);
     }
 
     function getUserPayment(uint256 _ID) public {
@@ -121,6 +124,7 @@ contract OptimizedPaymentContract {
     function addUserPaymentRule(address _userAddress, uint256 _amount, uint256 _ID) external onlyOwnerOrAdmin {
         require(userPaymentRules[_ID].amount == 0, "ID already exists");
         UserPaymentRule memory newRule = UserPaymentRule({
+            ID: _ID,
             userAddress: _userAddress,
             amount: _amount,
             status: false // Set the status to false initially
