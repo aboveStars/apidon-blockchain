@@ -5,6 +5,14 @@ contract OptimizedPaymentContract {
     address public owner;
     address public admin;
 
+    error Deny(string reason);
+    error AlreadyExists(string reason);
+    error NotExist(string reason);
+    error IncorrectAmount(string reason);
+    error InvalidRecipient(string reason);
+    error Unauthorized(string reason);
+    error NoBalance(string reason);
+
     event ProviderPaymentRuleCreated(address indexed recipient, uint256 amount, uint256 indexed ID, uint16 year, uint8 month, uint8 day);
     event ProviderPaymentRuleUpdated(uint256 indexed ID, uint256 newAmount, uint16 year, uint8 month, uint8 day);
     event ProviderPaymentMade(uint256 indexed ID, bool status);
@@ -51,7 +59,11 @@ contract OptimizedPaymentContract {
     }
 
     function createProviderPaymentRule(address payable _recipient, uint256 _amount, uint256 _ID, uint16 year, uint8 month, uint8 day) external onlyOwnerOrAdmin {
-        require(providerPaymentRules[_ID].amount == 0, "ID already exists");
+            // Check if the ID already exists
+    if (providerPaymentRules[_ID].amount != 0) {
+        revert AlreadyExists("ID already exists.");
+    }
+
         uint256 _dueDate = getUnixTimestamp(year, month, day);
         providerPaymentRules[_ID] = ProviderPaymentRule({
             ID: _ID,
@@ -66,8 +78,14 @@ contract OptimizedPaymentContract {
 
     function updateProviderPaymentRule(uint256 _ID, uint256 _newAmount, uint16 year, uint8 month, uint8 day) external onlyOwnerOrAdmin {
         ProviderPaymentRule storage rule = providerPaymentRules[_ID];
-        require(block.timestamp <= rule.dueDate, "Due date has passed, cannot update");
-        require(!rule.status, "Payment rule status is true, cannot update");
+            // Check if due date has passed
+    if (block.timestamp > rule.dueDate) {
+        revert Deny("Due date has passed, cannot update");
+    }
+        // Check the status of the payment rule
+    if (rule.status) {
+        revert Deny("Payment rule status is true, cannot update");
+    }
         // Update the payment rule
         rule.amount = _newAmount;
         rule.dueDate = getUnixTimestamp(year, month, day);
@@ -82,10 +100,21 @@ contract OptimizedPaymentContract {
 
     function makeProviderPayment(uint256 _ID) external payable {
         ProviderPaymentRule storage rule = providerPaymentRules[_ID];
-        require(rule.amount > 0, "Payment rule with the given ID does not exist");
-        require(msg.value == rule.amount, "Incorrect amount sent");
-        require(rule.recipient == payable(msg.sender), "Sender is not the recipient of the payment rule");
-        require(block.timestamp <= rule.dueDate, "Due date has passed");
+          // Check if the payment rule exists
+    if (rule.amount == 0) {
+        revert NotExist("Payment rule with the given ID does not exist");
+    }
+            // Check if the sent amount matches the expected amount
+    if (msg.value != rule.amount) {
+        revert IncorrectAmount("Incorrect amount send");
+    }
+            // Check if the sender is the recipient of the payment rule
+    if (rule.recipient != payable(msg.sender)) {
+        revert InvalidRecipient( "Sender is not the recipient of the payment rule");
+    }
+    if (block.timestamp > rule.dueDate) {
+        revert Deny("Due date has passed, cannot update");
+    }
         // Update payment rule status to true
         rule.status = true;
 
@@ -99,8 +128,14 @@ contract OptimizedPaymentContract {
 
     function getUserPayment(uint256 _ID) public {
         UserPaymentRule storage rule = userPaymentRules[_ID];
-        require(rule.userAddress == msg.sender, "Unauthorized");
-        require(rule.amount > 0, "No balance available to withdraw");
+            // Check if the caller is authorized to withdraw the payment
+    if (rule.userAddress != msg.sender) {
+        revert Unauthorized("Unauthorized");
+    }
+        // Check if there is a balance available to withdraw
+    if (rule.amount == 0) {
+        revert NoBalance("No balance available to withdraw");
+    }
         payable(msg.sender).transfer(rule.amount);
         rule.amount = 0; // Set the remaining amount to zero after withdrawal
         rule.status = true; // Update payment rule status to true
@@ -138,7 +173,10 @@ contract OptimizedPaymentContract {
 
     // Function to add a new user payment rule, accessible only by the contract owner and admin
     function addUserPaymentRule(address _userAddress, uint256 _amount, uint256 _ID) external onlyOwnerOrAdmin {
-        require(userPaymentRules[_ID].amount == 0, "ID already exists");
+           // Check if the ID already exists
+    if (userPaymentRules[_ID].amount != 0) {
+        revert AlreadyExists("ID already exists.");
+    }
         UserPaymentRule memory newRule = UserPaymentRule({
             ID: _ID,
             userAddress: _userAddress,
@@ -160,5 +198,12 @@ contract OptimizedPaymentContract {
     function getProviderPaymentRuleStatus(uint256 _ID) external view onlyOwnerOrAdmin returns (bool) {
         ProviderPaymentRule storage rule = providerPaymentRules[_ID];
         return rule.status;
+    }
+
+    receive() external payable {
+        revert Deny("No direct payments.");
+    }
+    fallback() external payable {
+        revert Deny("No direct payments.");
     }
 }
