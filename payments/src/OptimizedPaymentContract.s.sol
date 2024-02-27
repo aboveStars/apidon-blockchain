@@ -5,6 +5,12 @@ contract OptimizedPaymentContract {
     address public owner;
     address public admin;
 
+    event ProviderPaymentRuleCreated(address indexed recipient, uint256 amount, uint256 indexed ID, uint16 year, uint8 month, uint8 day);
+    event ProviderPaymentRuleUpdated(uint256 indexed ID, uint256 newAmount, uint16 year, uint8 month, uint8 day);
+    event ProviderPaymentMade(uint256 indexed ID, bool status);
+    event UserPaymentProcessed(uint256 indexed ID, bool status);
+    event UserPaymentRuleAdded(address indexed userAddress, uint256 amount, uint256 indexed ID);
+
     struct ProviderPaymentRule {
         uint256 ID;
         address payable recipient;
@@ -12,6 +18,8 @@ contract OptimizedPaymentContract {
         uint256 dueDate;
         bool status; // Payment status flag
     }
+
+  
 
     struct UserPaymentRule {
         uint256 ID;
@@ -52,6 +60,8 @@ contract OptimizedPaymentContract {
             dueDate: _dueDate,
             status: false // Set the status to false initially
         });
+
+        emit ProviderPaymentRuleCreated(_recipient, _amount, _ID, year, month, day);
     }
 
     function updateProviderPaymentRule(uint256 _ID, uint256 _newAmount, uint16 year, uint8 month, uint8 day) external onlyOwnerOrAdmin {
@@ -61,6 +71,8 @@ contract OptimizedPaymentContract {
         // Update the payment rule
         rule.amount = _newAmount;
         rule.dueDate = getUnixTimestamp(year, month, day);
+
+         emit ProviderPaymentRuleUpdated(_ID, _newAmount, year, month, day);
     }
 
     function getProviderPaymentRuleByID(uint256 _ID) external view onlyOwnerOrAdmin returns (uint256 ID, address payable recipient, uint256 amount, uint256 dueDate) {
@@ -76,6 +88,8 @@ contract OptimizedPaymentContract {
         require(block.timestamp <= rule.dueDate, "Due date has passed");
         // Update payment rule status to true
         rule.status = true;
+
+        emit ProviderPaymentMade(_ID, rule.status);
     }
 
     function getUserPaymentRuleByID(uint256 _ID) external view onlyOwnerOrAdmin returns (address userAddress, uint256 amount, uint256 ID) {
@@ -90,6 +104,8 @@ contract OptimizedPaymentContract {
         payable(msg.sender).transfer(rule.amount);
         rule.amount = 0; // Set the remaining amount to zero after withdrawal
         rule.status = true; // Update payment rule status to true
+
+        emit UserPaymentProcessed(_ID, rule.status);
     }
 
     function getUnixTimestamp(uint16 year, uint8 month, uint8 day) internal pure returns (uint256) {
@@ -130,6 +146,8 @@ contract OptimizedPaymentContract {
             status: false // Set the status to false initially
         });
         userPaymentRules[_ID] = newRule;
+
+        emit UserPaymentRuleAdded(_userAddress, _amount, _ID);
     }
 
     // Function to get the status of a user payment rule by its ID, accessible by contract owner and admin
