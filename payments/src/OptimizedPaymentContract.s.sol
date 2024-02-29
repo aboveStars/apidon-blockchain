@@ -6,14 +6,16 @@ contract OptimizedPaymentContract {
     address public admin;
 
     error Deny(string reason);
-    error AlreadyExists(string reason);
-    error NotExist(string reason);
-    error IncorrectAmount(string reason);
-    error InvalidRecipient(string reason);
-    error Unauthorized(string reason);
+    error Status(string reason);
+    error DueDateHasPassed();
+    error IdAlreadyExists();
+    error IdNotExist();
+    error IncorrectAmount();
+    error InvalidPayer();
+    error Unauthorized();
     error NoBalance(string reason);
 
-    event ProviderPaymentRuleCreated(address indexed recipient, uint256 amount, uint256 indexed ID, uint16 year, uint8 month, uint8 day);
+    event ProviderPaymentRuleCreated(address indexed payer, uint256 amount, uint256 indexed ID, uint16 year, uint8 month, uint8 day);
     event ProviderPaymentRuleUpdated(uint256 indexed ID, uint256 newAmount, uint16 year, uint8 month, uint8 day);
     event ProviderPaymentMade(uint256 indexed ID, bool status);
     event UserPaymentProcessed(uint256 indexed ID, bool status);
@@ -21,7 +23,7 @@ contract OptimizedPaymentContract {
 
     struct ProviderPaymentRule {
         uint256 ID;
-        address payable recipient;
+        address payable payer;
         uint256 amount;
         uint256 dueDate;
         bool status; // Payment status flag
@@ -58,33 +60,33 @@ contract OptimizedPaymentContract {
         _;
     }
 
-    function createProviderPaymentRule(address payable _recipient, uint256 _amount, uint256 _ID, uint16 year, uint8 month, uint8 day) external onlyOwnerOrAdmin {
+    function createProviderPaymentRule(address payable _payer, uint256 _amount, uint256 _ID, uint16 year, uint8 month, uint8 day) external onlyOwnerOrAdmin {
             // Check if the ID already exists
     if (providerPaymentRules[_ID].amount != 0) {
-        revert AlreadyExists("ID already exists.");
+        revert IdAlreadyExists();
     }
 
         uint256 _dueDate = getUnixTimestamp(year, month, day);
         providerPaymentRules[_ID] = ProviderPaymentRule({
             ID: _ID,
-            recipient: _recipient,
+            payer: _payer,
             amount: _amount,
             dueDate: _dueDate,
             status: false // Set the status to false initially
         });
 
-        emit ProviderPaymentRuleCreated(_recipient, _amount, _ID, year, month, day);
+        emit ProviderPaymentRuleCreated(_payer, _amount, _ID, year, month, day);
     }
 
     function updateProviderPaymentRule(uint256 _ID, uint256 _newAmount, uint16 year, uint8 month, uint8 day) external onlyOwnerOrAdmin {
         ProviderPaymentRule storage rule = providerPaymentRules[_ID];
             // Check if due date has passed
     if (block.timestamp > rule.dueDate) {
-        revert Deny("Due date has passed, cannot update");
+        revert DueDateHasPassed();
     }
         // Check the status of the payment rule
     if (rule.status) {
-        revert Deny("Payment rule status is true, cannot update");
+        revert Status("Payment rule status is true, cannot update");
     }
         // Update the payment rule
         rule.amount = _newAmount;
@@ -93,27 +95,32 @@ contract OptimizedPaymentContract {
          emit ProviderPaymentRuleUpdated(_ID, _newAmount, year, month, day);
     }
 
-    function getProviderPaymentRuleByID(uint256 _ID) external view onlyOwnerOrAdmin returns (uint256 ID, address payable recipient, uint256 amount, uint256 dueDate) {
+    function getProviderPaymentRuleByID(uint256 _ID) external view onlyOwnerOrAdmin returns (uint256 ID, address payable payer, uint256 amount, uint256 dueDate) {
         ProviderPaymentRule storage rule = providerPaymentRules[_ID];
-        return (rule.ID, rule.recipient, rule.amount, rule.dueDate);
+        return (rule.ID, rule.payer, rule.amount, rule.dueDate);
     }
 
     function makeProviderPayment(uint256 _ID) external payable {
         ProviderPaymentRule storage rule = providerPaymentRules[_ID];
+        // Check if the payment rule has already been paid
+    if (rule.status) {
+        revert Status("Payment rule has already been processed");
+    }
+
           // Check if the payment rule exists
     if (rule.amount == 0) {
-        revert NotExist("Payment rule with the given ID does not exist");
+        revert IdNotExist();
     }
             // Check if the sent amount matches the expected amount
     if (msg.value != rule.amount) {
-        revert IncorrectAmount("Incorrect amount send");
+        revert IncorrectAmount();
     }
-            // Check if the sender is the recipient of the payment rule
-    if (rule.recipient != payable(msg.sender)) {
-        revert InvalidRecipient( "Sender is not the recipient of the payment rule");
+            // Check if the sender is the payer of the payment rule 
+    if (rule.payer != payable(msg.sender)) {
+        revert InvalidPayer();
     }
     if (block.timestamp > rule.dueDate) {
-        revert Deny("Due date has passed, cannot update");
+        revert DueDateHasPassed();
     }
         // Update payment rule status to true
         rule.status = true;
@@ -130,14 +137,18 @@ contract OptimizedPaymentContract {
         UserPaymentRule storage rule = userPaymentRules[_ID];
             // Check if the caller is authorized to withdraw the payment
     if (rule.userAddress != msg.sender) {
-        revert Unauthorized("Unauthorized");
+        revert Unauthorized();
+    }
+            // Check the status of the payment rule
+    if (rule.status) {
+        revert Status("Payment rule status is true, cannot withdraw");
     }
         // Check if there is a balance available to withdraw
     if (rule.amount == 0) {
         revert NoBalance("No balance available to withdraw");
     }
         payable(msg.sender).transfer(rule.amount);
-        rule.amount = 0; // Set the remaining amount to zero after withdrawal
+        
         rule.status = true; // Update payment rule status to true
 
         emit UserPaymentProcessed(_ID, rule.status);
@@ -175,7 +186,7 @@ contract OptimizedPaymentContract {
     function addUserPaymentRule(address _userAddress, uint256 _amount, uint256 _ID) external onlyOwnerOrAdmin {
            // Check if the ID already exists
     if (userPaymentRules[_ID].amount != 0) {
-        revert AlreadyExists("ID already exists.");
+        revert IdAlreadyExists();
     }
         UserPaymentRule memory newRule = UserPaymentRule({
             ID: _ID,
