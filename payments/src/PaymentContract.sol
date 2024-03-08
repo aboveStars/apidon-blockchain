@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 contract PaymentContract {
     address public owner;
     address public admin;
+    bool private _notEntered;
 
     error Deny(string reason);
     error Status(string reason);
@@ -47,6 +48,13 @@ contract PaymentContract {
     function setAdmin(address _admin) external onlyOwner {
         admin = _admin;
     }
+     modifier nonReentrant() {
+        require(_notEntered, "Reentrant call");
+        _notEntered = false;
+        _;
+        _notEntered = true;
+    }
+
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only the owner can access this function");
@@ -108,8 +116,9 @@ contract PaymentContract {
         return (rule.ID, rule.payer, rule.amount, rule.dueDate);
     }
 
-    function makeProviderPayment(uint256 _ID) external payable {
+    function makeProviderPayment(uint256 _ID) external payable nonReentrant {
         ProviderPaymentRule storage rule = providerPaymentRules[_ID];
+        //CHECK
         // Check if the payment rule has already been paid
         if (rule.status) {
             revert Status("Payment rule has already been processed");
@@ -129,8 +138,13 @@ contract PaymentContract {
         if (getBlockTimestampInMilliseconds()> rule.dueDate) {
             revert DueDateHasPassed();
         }
+        //EFFECTS
         // Update payment rule status to true
         rule.status = true;
+
+        // INTERACTIONS (last step)
+        (bool success, ) = rule.payer.call{value: msg.value}("");
+        require(success, "Payment failed");
 
         emit ProviderPaymentMade(_ID, rule.status);
     }
@@ -140,8 +154,9 @@ contract PaymentContract {
         return (rule.userAddress, rule.amount, rule.ID);
     }
 
-    function getUserPayment(uint256 _ID) public {
+    function getUserPayment(uint256 _ID) public nonReentrant {
         UserPaymentRule storage rule = userPaymentRules[_ID];
+        //CHECKS
         // Check if the caller is authorized to withdraw the payment
         if (rule.userAddress != msg.sender) {
             revert Unauthorized();
@@ -154,9 +169,11 @@ contract PaymentContract {
         if (rule.amount == 0) {
             revert NoBalance("No balance available to withdraw");
         }
-        payable(msg.sender).transfer(rule.amount);
         
+        //EFFECTS
         rule.status = true; // Update payment rule status to true
+        //INTERACTIONS (last step)
+        payable(msg.sender).transfer(rule.amount);
 
         emit UserPaymentProcessed(_ID, rule.status);
     }
