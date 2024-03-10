@@ -43,6 +43,7 @@ contract PaymentContract {
     constructor() {
         owner = msg.sender;
         admin = address(0); // Initialize admin to an empty address
+        _notEntered = true; // Initialize _notEntered to true
     }
 
     function setAdmin(address _admin) external onlyOwner {
