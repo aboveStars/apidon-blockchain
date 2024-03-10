@@ -46,6 +46,17 @@ YOU CAN SEE THE OPTIMIZED VERSİON USES LESS GAS BY DEPLOYING BOTH CINTRACTS TO 
 
 
 
+reentrancy attack---- checks, effects, interactions---nonReentrant modifier
+
+
+
+overflow under flow---- solidity version
+
+
+
+DoS---- optimization made
+
+
 
 
 

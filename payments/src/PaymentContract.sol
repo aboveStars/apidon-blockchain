@@ -4,6 +4,7 @@ pragma solidity ^0.8.18;
 contract PaymentContract {
     address public owner;
     address public admin;
+    bool private _notEntered;
 
     error Deny(string reason);
     error Status(string reason);
@@ -42,11 +43,19 @@ contract PaymentContract {
     constructor() {
         owner = msg.sender;
         admin = address(0); // Initialize admin to an empty address
+        _notEntered = true; // Initialize _notEntered to true
     }
 
     function setAdmin(address _admin) external onlyOwner {
         admin = _admin;
     }
+     modifier nonReentrant() {
+        require(_notEntered, "Reentrant call");
+        _notEntered = false;
+        _;
+        _notEntered = true;
+    }
+
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Only the owner can access this function");
@@ -108,8 +117,9 @@ contract PaymentContract {
         return (rule.ID, rule.payer, rule.amount, rule.dueDate);
     }
 
-    function makeProviderPayment(uint256 _ID) external payable {
+    function makeProviderPayment(uint256 _ID) external payable   nonReentrant{
         ProviderPaymentRule storage rule = providerPaymentRules[_ID];
+        //CHECK
         // Check if the payment rule has already been paid
         if (rule.status) {
             revert Status("Payment rule has already been processed");
@@ -129,6 +139,7 @@ contract PaymentContract {
         if (getBlockTimestampInMilliseconds()> rule.dueDate) {
             revert DueDateHasPassed();
         }
+        //EFFECTS
         // Update payment rule status to true
         rule.status = true;
 
@@ -140,26 +151,32 @@ contract PaymentContract {
         return (rule.userAddress, rule.amount, rule.ID);
     }
 
-    function getUserPayment(uint256 _ID) public {
-        UserPaymentRule storage rule = userPaymentRules[_ID];
-        // Check if the caller is authorized to withdraw the payment
-        if (rule.userAddress != msg.sender) {
-            revert Unauthorized();
-        }
-        // Check the status of the payment rule
-        if (rule.status) {
-            revert Status("Payment rule status is true, cannot withdraw");
-        }
-        // Check if there is a balance available to withdraw
-        if (rule.amount == 0) {
-            revert NoBalance("No balance available to withdraw");
-        }
-        payable(msg.sender).transfer(rule.amount);
-        
-        rule.status = true; // Update payment rule status to true
-
-        emit UserPaymentProcessed(_ID, rule.status);
+    function getUserPayment(uint256 _ID) external nonReentrant {
+    UserPaymentRule storage rule = userPaymentRules[_ID];
+    //CHECKS
+    // Check if the caller is authorized to withdraw the payment
+    if (rule.userAddress != msg.sender) {
+        revert Unauthorized();
     }
+    // Check the status of the payment rule
+    if (rule.status) {
+        revert Status("Payment rule status is true, cannot withdraw");
+    }
+    // Check if there is a balance available to withdraw
+    if (rule.amount == 0) {
+        revert NoBalance("No balance available to withdraw");
+    }
+    
+    //EFFECTS
+    rule.status = true; // Update payment rule status to true
+    
+    //INTERACTIONS (last step)
+    // Transfer Ether to the caller's account
+    (bool success, ) = msg.sender.call{value: rule.amount}("");
+    require(success, "Transfer failed");
+
+    emit UserPaymentProcessed(_ID, rule.status);
+}
 
     // Function to add a new user payment rule, accessible only by the contract owner and admin
     function addUserPaymentRule(address _userAddress, uint256 _amount, uint256 _ID) external onlyOwnerOrAdmin {
@@ -204,4 +221,5 @@ contract PaymentContract {
     fallback() external payable {
         revert Deny("No direct payments.");
     }
+
 }
