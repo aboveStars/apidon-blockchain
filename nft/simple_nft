@@ -22,17 +22,18 @@ contract SimpleNftContract {
 
     // Function to mint a new NFT
     function mintNFT(string memory metadataUrl) external returns (uint256) {
-        // Increment the tokenId counter
-        _tokenIdCounter++;
 
         // Create the new NFT
         _nfts[_tokenIdCounter] = NFT(metadataUrl);
 
         // Emit an event for the creation of the NFT
         emit NFTCreated(_tokenIdCounter, msg.sender, metadataUrl);
+        
+         // Increment the tokenId counter
+        _tokenIdCounter++;
 
         // Return the tokenId of the created NFT
-        return _tokenIdCounter;
+        return _tokenIdCounter - 1;
     }
 
     // Function to get metadata URL of an NFT
