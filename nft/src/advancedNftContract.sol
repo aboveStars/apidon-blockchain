@@ -1,17 +1,16 @@
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract AdvancedNftContract is ERC721, Ownable {
-    uint256 public constant MAX_TOKEN_ID = 10000; // Maximum token ID allowed
+contract AdvancedNftContract is ERC721Enumerable, Ownable {
+    uint256 public constant MAX_TOKEN_ID = 10000;
 
     address public admin;
 
     constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol) Ownable(msg.sender) {
-        admin = msg.sender; // Contract deployer is set as the admin
+        admin = msg.sender;
     }
 
     modifier onlyAdminOrOwner() {
@@ -27,5 +26,9 @@ contract AdvancedNftContract is ERC721, Ownable {
         require(_id <= MAX_TOKEN_ID, "Token ID exceeds maximum allowed");
       
         _safeMint(_to, _id);
+    }
+
+    function getNumberOfNFTs(address _owner) external view returns (uint256) {
+        return balanceOf(_owner);
     }
 }
