@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract AdvancedNftContract is ERC721Enumerable, Ownable {
-    uint256 private constant MAX_TOKEN_ID = 10000;
+    uint256 private constant MAX_TOKEN_ID =  10000;
 
     address private admin;
 
