@@ -14,7 +14,9 @@ contract AdvancedNftContract is ERC721Enumerable, Ownable {
     }
 
     modifier onlyAdminOrOwner() {
-        require(msg.sender == admin || msg.sender == owner(), "Unauthorized");
+        if (msg.sender != admin && msg.sender != owner()) {
+            revert Unauthorized();
+        }
         _;
     }
 
@@ -23,7 +25,9 @@ contract AdvancedNftContract is ERC721Enumerable, Ownable {
     }
 
     function mint(address _to, uint256 _id) external onlyAdminOrOwner {
-        require(_id <= MAX_TOKEN_ID, "Token ID exceeds maximum allowed");
+        if (_id > MAX_TOKEN_ID) {
+            revert TokenIdExceedsMaxAllowed();
+        }
       
         _safeMint(_to, _id);
     }
@@ -31,4 +35,7 @@ contract AdvancedNftContract is ERC721Enumerable, Ownable {
     function getNumberOfNFTs(address _owner) external view returns (uint256) {
         return balanceOf(_owner);
     }
+
+    error Unauthorized();
+    error TokenIdExceedsMaxAllowed();
 }
