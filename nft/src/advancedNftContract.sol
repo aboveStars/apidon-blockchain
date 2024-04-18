@@ -9,6 +9,8 @@ contract AdvancedNftContract is ERC721Enumerable, Ownable {
 
     address private admin;
 
+    event AdminSet(address indexed _oldAdmin, address indexed _newAdmin);
+
     constructor(string memory _name, string memory _symbol) ERC721(_name, _symbol) Ownable(msg.sender) {
         admin = msg.sender;
     }
@@ -21,7 +23,9 @@ contract AdvancedNftContract is ERC721Enumerable, Ownable {
     }
 
     function setAdmin(address _newAdmin) external onlyOwner {
+        address oldAdmin = admin;
         admin = _newAdmin;
+        emit AdminSet(oldAdmin, _newAdmin);
     }
 
     function mint(address _to, uint256 _id) external onlyAdminOrOwner {
