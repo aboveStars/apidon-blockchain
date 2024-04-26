@@ -8,6 +8,7 @@ contract AdvancedNftContract is ERC721Enumerable, Ownable {
     uint256 private constant MAX_TOKEN_ID =  10000;
 
     address private admin;
+    bool private _notEntered;
 
     event AdminSet(address indexed _oldAdmin, address indexed _newAdmin);
 
@@ -21,6 +22,12 @@ contract AdvancedNftContract is ERC721Enumerable, Ownable {
         }
         _;
     }
+    modifier nonReentrant() {
+        require(_notEntered, "Reentrant call");
+        _notEntered = false;
+        _;
+        _notEntered = true;
+    }
 
     function setAdmin(address _newAdmin) external onlyOwner {
         address oldAdmin = admin;
@@ -28,7 +35,7 @@ contract AdvancedNftContract is ERC721Enumerable, Ownable {
         emit AdminSet(oldAdmin, _newAdmin);
     }
 
-    function mint(address _to, uint256 _id) external onlyAdminOrOwner {
+    function mint(address _to, uint256 _id) external onlyAdminOrOwner nonReentrant {
         if (_id > MAX_TOKEN_ID) {
             revert TokenIdExceedsMaxAllowed();
         }
@@ -39,6 +46,8 @@ contract AdvancedNftContract is ERC721Enumerable, Ownable {
     function getNumberOfNFTs(address _owner) external view returns (uint256) {
         return balanceOf(_owner);
     }
+ 
+
 
     error Unauthorized();
     error TokenIdExceedsMaxAllowed();
